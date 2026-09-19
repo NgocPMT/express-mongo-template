@@ -9,15 +9,12 @@ export type UserStatus = (typeof userStatuses)[number];
 
 export interface UserData {
   email: string;
-  name: string;
-  password_hash: string;
+  username: string;
   role?: UserRole;
   status?: UserStatus;
-  phone?: string;
-  avatar_url?: string | null;
 }
 
-const userSchema = new Schema(
+const userSchema = new Schema<UserData>(
   {
     email: {
       type: String,
@@ -27,15 +24,13 @@ const userSchema = new Schema(
       trim: true,
       lowercase: true,
     },
-    name: {
+    username: {
       type: String,
       required: true,
+      unique: true,
+      index: true,
       trim: true,
-    },
-    password_hash: {
-      type: String,
-      required: true,
-      select: false,
+      lowercase: true,
     },
     role: {
       type: String,
@@ -48,14 +43,6 @@ const userSchema = new Schema(
       enum: userStatuses,
       default: 'active',
       index: true,
-    },
-    phone: {
-      type: String,
-      trim: true,
-    },
-    avatar_url: {
-      type: String,
-      default: null,
     },
   },
   {
