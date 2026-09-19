@@ -60,7 +60,9 @@ docker compose up -d
 
 ### 4. Initialize MongoDB Replica Set
 
-MongoDB transactions require a replica set. Initialize the local replica set with:
+MongoDB transactions require a replica set. The `mongodb-init` service in `docker compose up -d` automatically initializes `rs0` upon container startup.
+
+If you ever need to manually (re-)initialize the replica set:
 
 ```bash
 docker exec -it express-template-mongodb mongosh --eval 'rs.initiate({ _id: "rs0", members: [{ _id: 0, host: "localhost:27017" }] })'
