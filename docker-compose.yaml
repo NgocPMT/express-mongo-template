@@ -1,6 +1,5 @@
 services:
-  # Primary MongoDB service running as a single-node replica set (rs0).
-  # A replica set is required for MongoDB multi-document transactions and change streams.
+  # Single-node replica set required for transactions
   mongodb:
     image: mongo:7
     container_name: express-template-mongodb
@@ -16,16 +15,7 @@ services:
       retries: 10
       start_period: 2s
 
-  # Automated one-time replica set initializer.
-  #
-  # Why this is needed:
-  # 1. When mongod starts with '--replSet rs0', it remains in an uninitialized state
-  #    ('ConfigUninitialized') until 'rs.initiate()' is executed. Without this,
-  #    drivers (like Mongoose) time out waiting for a primary node election.
-  # 2. 'host: localhost:27017' is specified so that host applications connecting
-  #    via the forwarded port '127.0.0.1:27017' can discover and reach the primary node.
-  # 3. This service waits for MongoDB to be healthy, checks if rs0 is already initialized
-  #    (idempotent), initiates if missing, and immediately exits.
+  # Initializes rs0 with localhost:27017 so host apps can connect to the primary node
   mongodb-init:
     image: mongo:7
     restart: "no"
