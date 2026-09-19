@@ -50,29 +50,31 @@ export class AuthService {
     return {
       id: String(user._id),
       email: user.email,
-      name: user.name,
+      username: user.username,
       role: user.role,
       status: user.status,
-      phone: user.phone,
-      avatar_url: user.avatar_url,
       createdAt: raw.createdAt ? new Date(raw.createdAt).toISOString() : undefined,
       updatedAt: raw.updatedAt ? new Date(raw.updatedAt).toISOString() : undefined,
     };
   }
 
   async register(input: RegisterRequest): Promise<AuthResponse> {
-    const exists = await this.repository.existsByEmail(input.email);
-    if (exists) {
+    const emailExists = await this.repository.existsByEmail(input.email);
+    if (emailExists) {
       throw createHttpError(HTTP_STATUS.HTTP_409_CONFLICT, AUTH_MESSAGES.USER_ALREADY_EXISTS);
+    }
+
+    const usernameExists = await this.repository.existsByUsername(input.username);
+    if (usernameExists) {
+      throw createHttpError(HTTP_STATUS.HTTP_409_CONFLICT, AUTH_MESSAGES.USERNAME_ALREADY_EXISTS);
     }
 
     const password_hash = await bcrypt.hash(input.password, AUTH_CONFIG.BCRYPT_SALT_ROUNDS);
 
-    const user = await this.repository.createUser({
+    const user = await this.repository.createUserWithAccount({
       email: input.email,
-      name: input.name,
+      username: input.username,
       password_hash,
-      ...(input.phone ? { phone: input.phone } : {}),
     });
 
     const tokens = this.generateTokens(user);
@@ -83,23 +85,23 @@ export class AuthService {
   }
 
   async login(input: LoginRequest): Promise<AuthResponse> {
-    const user = await this.repository.findByEmailWithPassword(input.email);
-    if (!user) {
+    const result = await this.repository.findByIdentifierWithPassword(input.identifier);
+    if (!result) {
       throw createHttpError(HTTP_STATUS.HTTP_401_UNAUTHORIZED, AUTH_MESSAGES.INVALID_CREDENTIALS);
     }
 
-    const isMatch = await bcrypt.compare(input.password, user.password_hash);
+    const isMatch = await bcrypt.compare(input.password, result.password_hash);
     if (!isMatch) {
       throw createHttpError(HTTP_STATUS.HTTP_401_UNAUTHORIZED, AUTH_MESSAGES.INVALID_CREDENTIALS);
     }
 
-    if (user.status !== 'active') {
+    if (result.user.status !== 'active') {
       throw createHttpError(HTTP_STATUS.HTTP_403_FORBIDDEN, AUTH_MESSAGES.ACCOUNT_INACTIVE);
     }
 
-    const tokens = this.generateTokens(user);
+    const tokens = this.generateTokens(result.user);
     return {
-      user: this.mapUserProfile(user),
+      user: this.mapUserProfile(result.user),
       tokens,
     };
   }

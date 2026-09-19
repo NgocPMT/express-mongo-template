@@ -1,19 +1,30 @@
 import { z } from 'zod';
-import { AUTH_CONFIG } from './auth.constants.js';
+import { AUTH_CONFIG, USERNAME_REGEX } from './auth.constants.js';
 
 export const registerRequestSchema = z.object({
   email: z.string().email('Invalid email address').trim().toLowerCase(),
+  username: z
+    .string()
+    .min(
+      AUTH_CONFIG.USERNAME_MIN_LENGTH,
+      `Username must be at least ${AUTH_CONFIG.USERNAME_MIN_LENGTH} characters`,
+    )
+    .max(
+      AUTH_CONFIG.USERNAME_MAX_LENGTH,
+      `Username cannot exceed ${AUTH_CONFIG.USERNAME_MAX_LENGTH} characters`,
+    )
+    .regex(USERNAME_REGEX, 'Username may only contain letters, numbers, and underscores')
+    .trim()
+    .toLowerCase(),
   password: z
     .string()
     .min(AUTH_CONFIG.PASSWORD_MIN_LENGTH, `Password must be at least ${AUTH_CONFIG.PASSWORD_MIN_LENGTH} characters`),
-  name: z.string().min(1, 'Name is required').trim(),
-  phone: z.string().trim().optional(),
 });
 
 export type RegisterRequest = z.infer<typeof registerRequestSchema>;
 
 export const loginRequestSchema = z.object({
-  email: z.string().email('Invalid email address').trim().toLowerCase(),
+  identifier: z.string().min(1, 'Email or username is required').trim().toLowerCase(),
   password: z.string().min(1, 'Password is required'),
 });
 
@@ -28,11 +39,9 @@ export type RefreshTokenRequest = z.infer<typeof refreshTokenRequestSchema>;
 export const userProfileSchema = z.object({
   id: z.string(),
   email: z.string().email(),
-  name: z.string(),
+  username: z.string(),
   role: z.string(),
   status: z.string(),
-  phone: z.string().optional(),
-  avatar_url: z.string().nullable().optional(),
   createdAt: z.string().optional(),
   updatedAt: z.string().optional(),
 });

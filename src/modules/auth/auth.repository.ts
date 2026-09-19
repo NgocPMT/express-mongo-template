@@ -1,15 +1,42 @@
+import { Account } from '../../models/account.model.js';
 import { User, type UserDoc } from '../../models/user.model.js';
 
-export interface CreateUserData {
+export interface CreateUserWithAccountData {
   email: string;
-  name: string;
+  username: string;
   password_hash: string;
-  phone?: string;
+}
+
+export interface UserWithPassword {
+  user: UserDoc;
+  password_hash: string;
 }
 
 export class AuthRepository {
-  async findByEmailWithPassword(email: string): Promise<(UserDoc & { password_hash: string }) | null> {
-    return User.findOne({ email }).select('+password_hash').exec() as Promise<(UserDoc & { password_hash: string }) | null>;
+  async findByIdentifierWithPassword(identifier: string): Promise<UserWithPassword | null> {
+    const user = await User.findOne({
+      $or: [{ email: identifier }, { username: identifier }],
+    }).exec();
+
+    if (!user) {
+      return null;
+    }
+
+    const account = await Account.findOne({
+      user_id: user._id,
+      provider: 'local',
+    })
+      .select('+password_hash')
+      .exec();
+
+    if (!account?.password_hash) {
+      return null;
+    }
+
+    return {
+      user,
+      password_hash: account.password_hash,
+    };
   }
 
   async findById(id: string): Promise<UserDoc | null> {
@@ -21,14 +48,26 @@ export class AuthRepository {
     return count > 0;
   }
 
-  async createUser(data: CreateUserData): Promise<UserDoc> {
-    const doc = new User({
+  async existsByUsername(username: string): Promise<boolean> {
+    const count = await User.countDocuments({ username }).exec();
+    return count > 0;
+  }
+
+  async createUserWithAccount(data: CreateUserWithAccountData): Promise<UserDoc> {
+    const user = new User({
       email: data.email,
-      name: data.name,
-      password_hash: data.password_hash,
-      ...(data.phone ? { phone: data.phone } : {}),
+      username: data.username,
     });
-    return doc.save();
+    await user.save();
+
+    const account = new Account({
+      user_id: user._id,
+      provider: 'local',
+      password_hash: data.password_hash,
+    });
+    await account.save();
+
+    return user;
   }
 }
 
