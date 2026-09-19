@@ -13,8 +13,9 @@ describe('AuthService', () => {
   beforeEach(() => {
     mockRepo = {
       existsByEmail: vi.fn(),
-      createUser: vi.fn(),
-      findByEmailWithPassword: vi.fn(),
+      existsByUsername: vi.fn(),
+      createUserWithAccount: vi.fn(),
+      findByIdentifierWithPassword: vi.fn(),
       findById: vi.fn(),
     };
     authService = new AuthService(mockRepo as AuthRepository);
@@ -23,16 +24,17 @@ describe('AuthService', () => {
   describe('register', () => {
     it('creates a user and returns auth tokens', async () => {
       mockRepo.existsByEmail = vi.fn().mockResolvedValue(false);
-      mockRepo.createUser = vi.fn().mockResolvedValue({
+      mockRepo.existsByUsername = vi.fn().mockResolvedValue(false);
+      mockRepo.createUserWithAccount = vi.fn().mockResolvedValue({
         _id: 'user-id-1',
         email: 'test@example.com',
-        name: 'Test User',
+        username: 'testuser',
         role: 'user',
         status: 'active',
         toObject: () => ({
           _id: 'user-id-1',
           email: 'test@example.com',
-          name: 'Test User',
+          username: 'testuser',
           role: 'user',
           status: 'active',
         }),
@@ -41,10 +43,11 @@ describe('AuthService', () => {
       const result = await authService.register({
         email: 'test@example.com',
         password: 'password123',
-        name: 'Test User',
+        username: 'testuser',
       });
 
       expect(result.user.email).toBe('test@example.com');
+      expect(result.user.username).toBe('testuser');
       expect(result.tokens.accessToken).toBeDefined();
       expect(result.tokens.refreshToken).toBeDefined();
     });
@@ -56,53 +59,120 @@ describe('AuthService', () => {
         authService.register({
           email: 'existing@example.com',
           password: 'password123',
-          name: 'Existing User',
+          username: 'testuser',
+        }),
+      ).rejects.toThrow();
+    });
+
+    it('throws 409 when user with username already exists', async () => {
+      mockRepo.existsByEmail = vi.fn().mockResolvedValue(false);
+      mockRepo.existsByUsername = vi.fn().mockResolvedValue(true);
+
+      await expect(
+        authService.register({
+          email: 'new@example.com',
+          password: 'password123',
+          username: 'existinguser',
         }),
       ).rejects.toThrow();
     });
   });
 
   describe('login', () => {
-    it('authenticates user and returns tokens', async () => {
+    it('authenticates user with email identifier and returns tokens', async () => {
       const passwordHash = await bcrypt.hash('password123', 10);
-      mockRepo.findByEmailWithPassword = vi.fn().mockResolvedValue({
-        _id: 'user-id-1',
-        email: 'test@example.com',
-        name: 'Test User',
-        password_hash: passwordHash,
-        role: 'user',
-        status: 'active',
-        toObject: () => ({
+      mockRepo.findByIdentifierWithPassword = vi.fn().mockResolvedValue({
+        user: {
           _id: 'user-id-1',
           email: 'test@example.com',
-          name: 'Test User',
+          username: 'testuser',
           role: 'user',
           status: 'active',
-        }),
+          toObject: () => ({
+            _id: 'user-id-1',
+            email: 'test@example.com',
+            username: 'testuser',
+            role: 'user',
+            status: 'active',
+          }),
+        },
+        password_hash: passwordHash,
       });
 
       const result = await authService.login({
-        email: 'test@example.com',
+        identifier: 'test@example.com',
         password: 'password123',
       });
 
       expect(result.user.email).toBe('test@example.com');
+      expect(result.user.username).toBe('testuser');
+      expect(result.tokens.accessToken).toBeDefined();
+    });
+
+    it('authenticates user with username identifier and returns tokens', async () => {
+      const passwordHash = await bcrypt.hash('password123', 10);
+      mockRepo.findByIdentifierWithPassword = vi.fn().mockResolvedValue({
+        user: {
+          _id: 'user-id-1',
+          email: 'test@example.com',
+          username: 'testuser',
+          role: 'user',
+          status: 'active',
+          toObject: () => ({
+            _id: 'user-id-1',
+            email: 'test@example.com',
+            username: 'testuser',
+            role: 'user',
+            status: 'active',
+          }),
+        },
+        password_hash: passwordHash,
+      });
+
+      const result = await authService.login({
+        identifier: 'testuser',
+        password: 'password123',
+      });
+
+      expect(result.user.username).toBe('testuser');
       expect(result.tokens.accessToken).toBeDefined();
     });
 
     it('throws 401 when password does not match', async () => {
       const passwordHash = await bcrypt.hash('different-password', 10);
-      mockRepo.findByEmailWithPassword = vi.fn().mockResolvedValue({
-        _id: 'user-id-1',
-        email: 'test@example.com',
+      mockRepo.findByIdentifierWithPassword = vi.fn().mockResolvedValue({
+        user: {
+          _id: 'user-id-1',
+          email: 'test@example.com',
+          username: 'testuser',
+          role: 'user',
+          status: 'active',
+          toObject: () => ({
+            _id: 'user-id-1',
+            email: 'test@example.com',
+            username: 'testuser',
+            role: 'user',
+            status: 'active',
+          }),
+        },
         password_hash: passwordHash,
-        status: 'active',
       });
 
       await expect(
         authService.login({
-          email: 'test@example.com',
+          identifier: 'test@example.com',
           password: 'wrong-password',
+        }),
+      ).rejects.toThrow();
+    });
+
+    it('throws 401 when identifier not found', async () => {
+      mockRepo.findByIdentifierWithPassword = vi.fn().mockResolvedValue(null);
+
+      await expect(
+        authService.login({
+          identifier: 'unknown@example.com',
+          password: 'password123',
         }),
       ).rejects.toThrow();
     });
@@ -118,6 +188,7 @@ describe('AuthService', () => {
       mockRepo.findById = vi.fn().mockResolvedValue({
         _id: 'user-id-1',
         email: 'test@example.com',
+        username: 'testuser',
         role: 'user',
         status: 'active',
       });

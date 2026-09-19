@@ -42,7 +42,7 @@ export function registerAuthOpenApi(registry: OpenAPIRegistry): void {
         },
       },
       [HTTP_STATUS.HTTP_409_CONFLICT]: {
-        description: 'Email already exists',
+        description: 'Email or username already exists',
       },
     },
   });
@@ -51,7 +51,7 @@ export function registerAuthOpenApi(registry: OpenAPIRegistry): void {
     method: 'post',
     path: '/api/v1/auth/login',
     tags: ['Auth'],
-    summary: 'Authenticate with email and password',
+    summary: 'Authenticate with email or username and password',
     request: {
       body: {
         content: {
