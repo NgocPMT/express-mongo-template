@@ -1,73 +1,44 @@
-import { Account } from '../../models/account.model.js';
-import { User, type UserDoc } from '../../models/user.model.js';
+import type { Types } from 'mongoose';
 
-export interface CreateUserWithAccountData {
-  email: string;
-  username: string;
-  password_hash: string;
-}
+import { Account, type AccountDoc, type AuthProvider } from '../../models/account.model.js';
 
-export interface UserWithPassword {
-  user: UserDoc;
-  password_hash: string;
+export interface CreateAccountData {
+  userId: Types.ObjectId | string;
+  provider: AuthProvider;
+  password_hash?: string;
+  provider_account_id?: string;
 }
 
 export class AuthRepository {
-  async findByIdentifierWithPassword(identifier: string): Promise<UserWithPassword | null> {
-    const user = await User.findOne({
-      $or: [{ email: identifier }, { username: identifier }],
-    }).exec();
+  async createAccount(data: CreateAccountData): Promise<AccountDoc> {
+    const account = new Account({
+      user_id: data.userId,
+      provider: data.provider,
+      ...(data.password_hash ? { password_hash: data.password_hash } : {}),
+      ...(data.provider_account_id ? { provider_account_id: data.provider_account_id } : {}),
+    });
+    return account.save();
+  }
 
-    if (!user) {
-      return null;
-    }
-
-    const account = await Account.findOne({
-      user_id: user._id,
+  async findLocalAccountByUserId(
+    userId: Types.ObjectId | string,
+  ): Promise<(AccountDoc & { password_hash: string }) | null> {
+    return Account.findOne({
+      user_id: userId,
       provider: 'local',
     })
       .select('+password_hash')
-      .exec();
-
-    if (!account?.password_hash) {
-      return null;
-    }
-
-    return {
-      user,
-      password_hash: account.password_hash,
-    };
+      .exec() as Promise<(AccountDoc & { password_hash: string }) | null>;
   }
 
-  async findById(id: string): Promise<UserDoc | null> {
-    return User.findById(id).exec();
-  }
-
-  async existsByEmail(email: string): Promise<boolean> {
-    const count = await User.countDocuments({ email }).exec();
-    return count > 0;
-  }
-
-  async existsByUsername(username: string): Promise<boolean> {
-    const count = await User.countDocuments({ username }).exec();
-    return count > 0;
-  }
-
-  async createUserWithAccount(data: CreateUserWithAccountData): Promise<UserDoc> {
-    const user = new User({
-      email: data.email,
-      username: data.username,
-    });
-    await user.save();
-
-    const account = new Account({
-      user_id: user._id,
-      provider: 'local',
-      password_hash: data.password_hash,
-    });
-    await account.save();
-
-    return user;
+  async findAccountByProvider(
+    provider: AuthProvider,
+    providerAccountId: string,
+  ): Promise<AccountDoc | null> {
+    return Account.findOne({
+      provider,
+      provider_account_id: providerAccountId,
+    }).exec();
   }
 }
 
