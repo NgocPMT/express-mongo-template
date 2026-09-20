@@ -7,7 +7,7 @@ import {
   refreshTokenRequestSchema,
   refreshTokenResponseSchema,
   registerRequestSchema,
-  userProfileSchema,
+  userDtoSchema,
 } from './auth.schemas.js';
 
 export function registerAuthOpenApi(registry: OpenAPIRegistry): void {
@@ -16,7 +16,7 @@ export function registerAuthOpenApi(registry: OpenAPIRegistry): void {
   const registeredRefreshTokenRequest = registry.register('RefreshTokenRequest', refreshTokenRequestSchema);
   const registeredAuthResponse = registry.register('AuthResponse', authResponseSchema);
   const registeredRefreshTokenResponse = registry.register('RefreshTokenResponse', refreshTokenResponseSchema);
-  const registeredUserProfile = registry.register('UserProfile', userProfileSchema);
+  const registeredUserDto = registry.register('UserDTO', userDtoSchema);
 
   registry.registerPath({
     method: 'post',
@@ -116,7 +116,7 @@ export function registerAuthOpenApi(registry: OpenAPIRegistry): void {
         description: 'Current user profile',
         content: {
           'application/json': {
-            schema: registeredUserProfile,
+            schema: registeredUserDto,
           },
         },
       },

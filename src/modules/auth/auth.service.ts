@@ -13,7 +13,7 @@ import type {
   LoginRequest,
   RefreshTokenResponse,
   RegisterRequest,
-  UserProfile,
+  UserDTO,
 } from './auth.schemas.js';
 
 interface TokenPayload {
@@ -45,7 +45,7 @@ export class AuthService {
     return { accessToken, refreshToken };
   }
 
-  private mapUserProfile(user: UserDoc): UserProfile {
+  private mapUserDto(user: UserDoc): UserDTO {
     const raw = user.toObject();
     return {
       id: String(user._id),
@@ -79,7 +79,7 @@ export class AuthService {
 
     const tokens = this.generateTokens(user);
     return {
-      user: this.mapUserProfile(user),
+      user: this.mapUserDto(user),
       tokens,
     };
   }
@@ -101,7 +101,7 @@ export class AuthService {
 
     const tokens = this.generateTokens(result.user);
     return {
-      user: this.mapUserProfile(result.user),
+      user: this.mapUserDto(result.user),
       tokens,
     };
   }
@@ -121,13 +121,13 @@ export class AuthService {
     }
   }
 
-  async getCurrentUser(userId: string): Promise<UserProfile> {
+  async getCurrentUser(userId: string): Promise<UserDTO> {
     const user = await this.repository.findById(userId);
     if (!user) {
       throw createHttpError(HTTP_STATUS.HTTP_404_NOT_FOUND, AUTH_MESSAGES.USER_NOT_FOUND);
     }
 
-    return this.mapUserProfile(user);
+    return this.mapUserDto(user);
   }
 }
 

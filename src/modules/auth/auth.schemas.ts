@@ -36,7 +36,7 @@ export const refreshTokenRequestSchema = z.object({
 
 export type RefreshTokenRequest = z.infer<typeof refreshTokenRequestSchema>;
 
-export const userProfileSchema = z.object({
+export const userDtoSchema = z.object({
   id: z.string(),
   email: z.string().email(),
   username: z.string(),
@@ -46,7 +46,7 @@ export const userProfileSchema = z.object({
   updatedAt: z.string().optional(),
 });
 
-export type UserProfile = z.infer<typeof userProfileSchema>;
+export type UserDTO = z.infer<typeof userDtoSchema>;
 
 export const authTokensSchema = z.object({
   accessToken: z.string(),
@@ -56,7 +56,7 @@ export const authTokensSchema = z.object({
 export type AuthTokens = z.infer<typeof authTokensSchema>;
 
 export const authResponseSchema = z.object({
-  user: userProfileSchema,
+  user: userDtoSchema,
   tokens: authTokensSchema,
 });
 
