@@ -21,7 +21,7 @@ describe('AuthController', () => {
   describe('register', () => {
     it('returns 201 with auth payload', async () => {
       const mockResult = {
-        user: { id: '1', email: 'test@example.com', name: 'Test', role: 'user', status: 'active' },
+        user: { id: '1', email: 'test@example.com', username: 'testuser', role: 'user', status: 'active' },
         tokens: { accessToken: 'a', refreshToken: 'r' },
       };
       mockService.register = vi.fn().mockResolvedValue(mockResult);
@@ -33,7 +33,7 @@ describe('AuthController', () => {
         status,
         locals: {
           validated: {
-            body: { email: 'test@example.com', password: 'password123', name: 'Test' },
+            body: { email: 'test@example.com', password: 'password123', username: 'testuser' },
           },
         },
       } as never;
@@ -49,7 +49,7 @@ describe('AuthController', () => {
   describe('login', () => {
     it('returns 200 with auth payload', async () => {
       const mockResult = {
-        user: { id: '1', email: 'test@example.com', name: 'Test', role: 'user', status: 'active' },
+        user: { id: '1', email: 'test@example.com', username: 'testuser', role: 'user', status: 'active' },
         tokens: { accessToken: 'a', refreshToken: 'r' },
       };
       mockService.login = vi.fn().mockResolvedValue(mockResult);
@@ -61,7 +61,7 @@ describe('AuthController', () => {
         status,
         locals: {
           validated: {
-            body: { email: 'test@example.com', password: 'password123' },
+            body: { identifier: 'test@example.com', password: 'password123' },
           },
         },
       } as never;

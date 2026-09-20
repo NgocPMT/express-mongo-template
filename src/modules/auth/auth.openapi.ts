@@ -7,7 +7,7 @@ import {
   refreshTokenRequestSchema,
   refreshTokenResponseSchema,
   registerRequestSchema,
-  userProfileSchema,
+  userDtoSchema,
 } from './auth.schemas.js';
 
 export function registerAuthOpenApi(registry: OpenAPIRegistry): void {
@@ -16,7 +16,7 @@ export function registerAuthOpenApi(registry: OpenAPIRegistry): void {
   const registeredRefreshTokenRequest = registry.register('RefreshTokenRequest', refreshTokenRequestSchema);
   const registeredAuthResponse = registry.register('AuthResponse', authResponseSchema);
   const registeredRefreshTokenResponse = registry.register('RefreshTokenResponse', refreshTokenResponseSchema);
-  const registeredUserProfile = registry.register('UserProfile', userProfileSchema);
+  const registeredUserDto = registry.register('UserDTO', userDtoSchema);
 
   registry.registerPath({
     method: 'post',
@@ -42,7 +42,7 @@ export function registerAuthOpenApi(registry: OpenAPIRegistry): void {
         },
       },
       [HTTP_STATUS.HTTP_409_CONFLICT]: {
-        description: 'Email already exists',
+        description: 'Email or username already exists',
       },
     },
   });
@@ -51,7 +51,7 @@ export function registerAuthOpenApi(registry: OpenAPIRegistry): void {
     method: 'post',
     path: '/api/v1/auth/login',
     tags: ['Auth'],
-    summary: 'Authenticate with email and password',
+    summary: 'Authenticate with email or username and password',
     request: {
       body: {
         content: {
@@ -116,7 +116,7 @@ export function registerAuthOpenApi(registry: OpenAPIRegistry): void {
         description: 'Current user profile',
         content: {
           'application/json': {
-            schema: registeredUserProfile,
+            schema: registeredUserDto,
           },
         },
       },
