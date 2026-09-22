@@ -5,6 +5,7 @@ import { env } from '../../config/env.js';
 import type { UserDoc } from '../../models/user.model.js';
 import { HTTP_STATUS } from '../../shared/constants/http-status.js';
 import { createHttpError } from '../../shared/errors/http-error.js';
+import { usersService, type UsersService } from '../users/users.service.js';
 import { AUTH_CONFIG, AUTH_MESSAGES } from './auth.constants.js';
 import { authRepository, type AuthRepository } from './auth.repository.js';
 import type {
@@ -25,7 +26,10 @@ interface TokenPayload {
 type ValidExpiresIn = NonNullable<jwt.SignOptions['expiresIn']>;
 
 export class AuthService {
-  constructor(private readonly repository: AuthRepository = authRepository) {}
+  constructor(
+    private readonly repository: AuthRepository = authRepository,
+    private readonly userService: UsersService = usersService,
+  ) {}
 
   private generateTokens(user: { _id: unknown; email: string; role: string }): AuthTokens {
     const payload: TokenPayload = {
@@ -46,34 +50,30 @@ export class AuthService {
   }
 
   private mapUserDto(user: UserDoc): UserDTO {
-    const raw = user.toObject();
-    return {
-      id: String(user._id),
-      email: user.email,
-      username: user.username,
-      role: user.role,
-      status: user.status,
-      createdAt: raw.createdAt ? new Date(raw.createdAt).toISOString() : undefined,
-      updatedAt: raw.updatedAt ? new Date(raw.updatedAt).toISOString() : undefined,
-    };
+    return this.userService.mapUserDto(user);
   }
 
   async register(input: RegisterRequest): Promise<AuthResponse> {
-    const emailExists = await this.repository.existsByEmail(input.email);
+    const emailExists = await this.userService.existsByEmail(input.email);
     if (emailExists) {
       throw createHttpError(HTTP_STATUS.HTTP_409_CONFLICT, AUTH_MESSAGES.USER_ALREADY_EXISTS);
     }
 
-    const usernameExists = await this.repository.existsByUsername(input.username);
+    const usernameExists = await this.userService.existsByUsername(input.username);
     if (usernameExists) {
       throw createHttpError(HTTP_STATUS.HTTP_409_CONFLICT, AUTH_MESSAGES.USERNAME_ALREADY_EXISTS);
     }
 
-    const password_hash = await bcrypt.hash(input.password, AUTH_CONFIG.BCRYPT_SALT_ROUNDS);
-
-    const user = await this.repository.createUserWithAccount({
+    const user = await this.userService.createUser({
       email: input.email,
       username: input.username,
+    });
+
+    const password_hash = await bcrypt.hash(input.password, AUTH_CONFIG.BCRYPT_SALT_ROUNDS);
+
+    await this.repository.createAccount({
+      userId: user._id,
+      provider: 'local',
       password_hash,
     });
 
@@ -85,23 +85,28 @@ export class AuthService {
   }
 
   async login(input: LoginRequest): Promise<AuthResponse> {
-    const result = await this.repository.findByIdentifierWithPassword(input.identifier);
-    if (!result) {
+    const user = await this.userService.findByIdentifier(input.identifier);
+    if (!user) {
       throw createHttpError(HTTP_STATUS.HTTP_401_UNAUTHORIZED, AUTH_MESSAGES.INVALID_CREDENTIALS);
     }
 
-    const isMatch = await bcrypt.compare(input.password, result.password_hash);
+    const account = await this.repository.findLocalAccountByUserId(user._id);
+    if (!account?.password_hash) {
+      throw createHttpError(HTTP_STATUS.HTTP_401_UNAUTHORIZED, AUTH_MESSAGES.INVALID_CREDENTIALS);
+    }
+
+    const isMatch = await bcrypt.compare(input.password, account.password_hash);
     if (!isMatch) {
       throw createHttpError(HTTP_STATUS.HTTP_401_UNAUTHORIZED, AUTH_MESSAGES.INVALID_CREDENTIALS);
     }
 
-    if (result.user.status !== 'active') {
+    if (user.status !== 'active') {
       throw createHttpError(HTTP_STATUS.HTTP_403_FORBIDDEN, AUTH_MESSAGES.ACCOUNT_INACTIVE);
     }
 
-    const tokens = this.generateTokens(result.user);
+    const tokens = this.generateTokens(user);
     return {
-      user: this.mapUserDto(result.user),
+      user: this.mapUserDto(user),
       tokens,
     };
   }
@@ -110,7 +115,7 @@ export class AuthService {
     try {
       const decoded = jwt.verify(refreshToken, env.JWT_REFRESH_SECRET) as unknown as TokenPayload;
 
-      const user = await this.repository.findById(decoded.sub);
+      const user = await this.userService.findById(decoded.sub);
       if (!user || user.status !== 'active') {
         throw createHttpError(HTTP_STATUS.HTTP_401_UNAUTHORIZED, AUTH_MESSAGES.INVALID_REFRESH_TOKEN);
       }
@@ -122,12 +127,7 @@ export class AuthService {
   }
 
   async getCurrentUser(userId: string): Promise<UserDTO> {
-    const user = await this.repository.findById(userId);
-    if (!user) {
-      throw createHttpError(HTTP_STATUS.HTTP_404_NOT_FOUND, AUTH_MESSAGES.USER_NOT_FOUND);
-    }
-
-    return this.mapUserDto(user);
+    return this.userService.getUserById(userId);
   }
 }
 
